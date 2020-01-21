@@ -28,7 +28,7 @@ if platform.system() == "Linux":
         os.system("python ../object-detector/extract-features.py -p {} -n {}".format(pos_path, neg_path))
         os.system("python ../object-detector/train-classifier.py -p {} -n {}".format(pos_feat_path, neg_feat_path))
     else:
-        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle_10.jpg"
+        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle_7.jpg"
         os.system("python ../object-detector/test-classifier.py -i {} -d {}".format(test_im_path,3))
 
 elif platform.system() == "Windows":
@@ -45,5 +45,5 @@ elif platform.system() == "Windows":
         os.system("python ..\\object-detector\\extract-features.py -p {} -n {} -pf {} -nf {}".format(pos_path, neg_path, pos_feat_path, neg_feat_path))
         os.system("python ..\\object-detector\\train-classifier.py -p {} -n {}".format(pos_feat_path, neg_feat_path))
     else:
-        test_im_path = "..\\..\\data\\dataset\\BaustelleData\\TestImages\\baustelle3.jpg"
+        test_im_path = "..\\..\\data\\dataset\\BaustelleData\\TestImages\\baustelle5.jpg"
         os.system("python ..\\object-detector\\test-classifier.py -i {} -d {}".format(test_im_path,3))
