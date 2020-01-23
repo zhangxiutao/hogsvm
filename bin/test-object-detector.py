@@ -2,15 +2,7 @@
 import os
 import shutil
 import platform
-# Link to the UIUC Car Database
-# http://l2r.cs.uiuc.edu/~cogcomp/Data/Car/CarData.tar.gz
-# dataset_url = "http://l2r.cs.uiuc.edu/~cogcomp/Data/Car/CarData.tar.gz"
-# dataset_path = "../data/dataset/CarData.tar.gz"
 
-#Fetch and extract the dataset
-# if not os.path.exists(dataset_path):
-#     os.system("wget {} -O {}".format(dataset_url, dataset_path))
-#     os.system("tar -xvzf {} -C {}".format(dataset_path, os.path.split(dataset_path)[0]))
 
 mod = "T"
 
@@ -28,7 +20,7 @@ if platform.system() == "Linux":
         os.system("python ../object-detector/extract-features.py -p {} -n {}".format(pos_path, neg_path))
         os.system("python ../object-detector/train-classifier.py -p {} -n {}".format(pos_feat_path, neg_feat_path))
     else:
-        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle_7.jpg"
+        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle/baustelle_14.jpg"
         os.system("python ../object-detector/test-classifier.py -i {} -d {}".format(test_im_path,3))
 
 elif platform.system() == "Windows":
@@ -45,5 +37,5 @@ elif platform.system() == "Windows":
         os.system("python ..\\object-detector\\extract-features.py -p {} -n {} -pf {} -nf {}".format(pos_path, neg_path, pos_feat_path, neg_feat_path))
         os.system("python ..\\object-detector\\train-classifier.py -p {} -n {}".format(pos_feat_path, neg_feat_path))
     else:
-        test_im_path = "..\\..\\data\\dataset\\BaustelleData\\TestImages\\baustelle5.jpg"
+        test_im_path = "..\\..\\data\\dataset\\BaustelleData\\TestImages\\baustelle2.jpg"
         os.system("python ..\\object-detector\\test-classifier.py -i {} -d {}".format(test_im_path,3))

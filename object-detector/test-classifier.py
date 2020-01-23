@@ -8,10 +8,14 @@ import numpy as np
 
 import torch
 import torchvision.transforms as transforms
+import torchvision.ops as ops
 import torch.nn
 import os.path
 import cnn
 import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw
+import uuid
+import time
 
 patch_size = min_wdw_sz[0]*min_wdw_sz[1]
 
@@ -67,10 +71,11 @@ def checkIfWanted(img):
     return True
 
 def sliding_window(image, window_size, step_size):
-    for y in xrange(0, image.shape[0], step_size[1]):
-        for x in xrange(0, image.shape[1], step_size[0]):
-            if (x+window_size[0]) <= image.shape[1] and (y+window_size[1]) <= image.shape[0]:
-                yield (x, y, image[y:y + window_size[1], x:x + window_size[0]])
+    for y in xrange(0, image.size[0], step_size[1]):
+        for x in xrange(0, image.size[1], step_size[0]):
+            if (x+window_size[0]) <= image.size[1] and (y+window_size[1]) <= image.size[0]:
+                window = image.crop((x,y,x + window_size[0],y + window_size[1]))
+                yield (x,y,window)
 
 if __name__ == "__main__":
 
@@ -89,45 +94,47 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     # Read the image
-    img_origin = cv2.imread(args["image"])
-    # normalizedImg = np.zeros((img_origin.shape[0], img_origin.shape[1]))
-    # normalizedImg = cv2.normalize(img_origin, None, alpha=0.0, beta=1.0, norm_type=cv2.NORM_MINMAX)
-    img_normalized = im2double(img_origin)
-    print(img_normalized)
-    #img_origin_cropped = img_origin[int(img_origin.shape[1]/2):img_origin.shape[1], :]
+    img_origin = Image.open(args["image"])
 
     visualize_det = args['visualize']
     # List to store the detections
     detections = []
-    backProjectedDetections = []
+    scores = []
     # The current scale of the image
     scale = 0
 
+    toTensor = transforms.ToTensor()
     norm = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+
     # This list contains detections at the current scale
-    cd = []          
-    for (x, y, im_window) in sliding_window(img_normalized, min_wdw_sz, step_size):
-        data = torch.from_numpy(im_window.astype(np.double))
-        data = data.permute(2,0,1)
+    cd = []
+    count = 1          
+    for (x, y, im_window) in sliding_window(img_origin, min_wdw_sz, step_size):
+
+        data = toTensor(im_window)
+        data = data.double()
         data = norm(data)
         data = data.unsqueeze(0)
-        
-        #print(data)
         output = torch.max(model(data), 1)
-        print(data)
+
         if 1 == int(output[1]):
-            print  "Detection:: Location -> ({}, {})".format(x, y)
-            backProjectedDetections.append((x, y, output,
-                int(min_wdw_sz[0]),
-                int(min_wdw_sz[1])))
-            cd.append(backProjectedDetections[-1])
-        
-    clone = img_origin.copy()
-    # Perform Non Maxima Suppression
-    backProjectedDetections = nms(backProjectedDetections, threshold)
-    # Display the results after performing NMS
-    for (x_tl, y_tl, _, w, h) in backProjectedDetections:
+            fileName = uuid.uuid4().hex+".jpg"
+            filePath = "../data/detectedWindows/" + fileName
+            print(filePath)
+            im_window.save(filePath)
+            print "Detection:: Location -> ({}, {})".format(x, y)
+            detections.append((x, y, x+int(min_wdw_sz[0]), y+int(min_wdw_sz[1])))
+            scores.append(output[0])
+            cd.append(detections[-1])
+            count=count+1
+
+    detections = torch.tensor(detections).double()
+    scores = torch.tensor(scores)
+    detections_nms_idx = ops.nms(detections,scores,0.2)
+    img1 = ImageDraw.Draw(img_origin) 
+    for idx in detections_nms_idx:
         # Draw the detections
-        cv2.rectangle(clone, (x_tl, y_tl), (x_tl+w,y_tl+h), (0, 0, 0), thickness=2)
-    cv2.imshow("Final Detections after applying NMS", clone)
-    cv2.waitKey(0)
+        img1.rectangle(detections[idx].tolist(), fill=None, outline ="red") 
+
+    img_origin.show() 
+    time.sleep(5)
