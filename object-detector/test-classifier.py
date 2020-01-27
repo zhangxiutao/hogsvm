@@ -6,6 +6,7 @@ from nms import nms
 from config import *
 import numpy as np
 
+import math
 import torch
 import torchvision.transforms as transforms
 import torchvision.ops as ops
@@ -16,20 +17,12 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 import uuid
 import time
+import random
 
 patch_size = min_wdw_sz[0]*min_wdw_sz[1]
 
-def im2double(im):
-    min_val = np.min(im.ravel())
-    max_val = np.max(im.ravel())
-    out = (im.astype('float') - min_val) / (max_val - min_val)
-    return out
+def red_mask(img):
 
-def checkIfWanted(img):
-
-    img = util.img_as_ubyte(img)
-
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     #red mask0
     lower_red = np.array([0, 43, 46])
@@ -42,40 +35,27 @@ def checkIfWanted(img):
 
     mask_red = mask0 + mask1
     res_red = cv2.bitwise_and(img, img, mask=mask_red)
-
+    
     #erosion
-    erosionKernel = np.ones((5,5),np.uint8)
-    erosion_red = cv2.erode(res_red,erosionKernel)
-    bw_image_red = cv2.cvtColor(cv2.cvtColor(erosion_red, cv2.COLOR_HSV2BGR), cv2.COLOR_RGB2GRAY)
+    kernel = np.ones((5,5),np.uint8)
+    res_red = cv2.erode(res_red,kernel)
+    res_red = cv2.cvtColor(cv2.cvtColor(res_red, cv2.COLOR_HSV2BGR), cv2.COLOR_RGB2GRAY)
+    #cv2.imshow("redmask",res_red)
 
-    #black mask0
-    lower_black = np.array([0,0,0]) 
-    upper_black = np.array([180,255,46]) 
-    mask_black = cv2.inRange(img_hsv,lower_black,upper_black)
-    res_black = cv2.bitwise_and(img, img, mask=mask_black)
-    res_black = cv2.cvtColor(res_black, cv2.COLOR_BGR2GRAY)
-    #erosion
-    #erosionKernel = np.ones((5,5),np.uint8)
-    #erosion_black = cv2.erode(res_black,erosionKernel)
-    #bw_image_black = cv2.cvtColor(cv2.cvtColor(erosion_black, cv2.COLOR_HSV2BGR), cv2.COLOR_RGB2GRAY)
+    return res_red
 
+def random_window(img_origin_pil, img_cv2, window_size):
+    nonzeros = cv2.findNonZero(img_cv2)
 
-    #print(cv2.countNonZero(bw_image_red))
-    #print(patch_size)
+    while True:
+        anchor_point = random.choice(nonzeros)[0]
+        mid_p1 = (anchor_point[0]-math.floor(window_size[0]/2),anchor_point[1]-math.floor(window_size[1]/2))
+        mid_p2 = (anchor_point[0]+math.ceil(window_size[0]/2),anchor_point[1]+math.ceil(window_size[1]/2))
+        if mid_p1[0] > 0 and mid_p1[1] > 0 and mid_p2[0] < img_origin_pil.size[0] and mid_p2[1] < img_origin_pil.size[1]:
+            break
 
-    # if cv2.countNonZero(bw_image_red)/patch_size < 0.25 or cv2.countNonZero(bw_image_red)/patch_size > 0.5:
-        
-    #     return False
-    # else:
-    #     return True
-    return True
-
-def sliding_window(image, window_size, step_size):
-    for y in xrange(0, image.size[0], step_size[1]):
-        for x in xrange(0, image.size[1], step_size[0]):
-            if (x+window_size[0]) <= image.size[1] and (y+window_size[1]) <= image.size[0]:
-                window = image.crop((x,y,x + window_size[0],y + window_size[1]))
-                yield (x,y,window)
+    img_window_pil = img_origin_pil.crop((mid_p1[0],mid_p1[1],mid_p2[0],mid_p2[1]))
+    return (mid_p1[0],mid_p1[1],img_window_pil)
 
 if __name__ == "__main__":
 
@@ -92,11 +72,13 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--visualize', help="Visualize the sliding window",
             action="store_true")
     args = vars(parser.parse_args())
+    visualize_det = args['visualize']
 
     # Read the image
-    img_origin = Image.open(args["image"])
+    img_origin_pil = Image.open(args["image"])
+    img_origin_cv2 = np.array(img_origin_pil.convert('RGB')) 
+    img_origin_cv2 = img_origin_cv2[:, :, ::-1].copy() #convert rgb to bgr
 
-    visualize_det = args['visualize']
     # List to store the detections
     detections = []
     scores = []
@@ -109,19 +91,22 @@ if __name__ == "__main__":
     # This list contains detections at the current scale
     cd = []
     count = 1          
-    for (x, y, im_window) in sliding_window(img_origin, min_wdw_sz, step_size):
 
-        data = toTensor(im_window)
-        data = data.double()
+    for i in xrange(100):
+
+        img_red_mask = red_mask(img_origin_cv2)
+        (x,y,window_pil) = random_window(img_origin_pil,img_red_mask,(min_wdw_sz[0],min_wdw_sz[1]))
+        data = toTensor(window_pil)
+        data = data.double()[:3,:,:]
         data = norm(data)
         data = data.unsqueeze(0)
         output = torch.max(model(data), 1)
 
         if 1 == int(output[1]):
-            fileName = uuid.uuid4().hex+".jpg"
+            fileName = uuid.uuid4().hex+".png"
             filePath = "../data/detectedWindows/" + fileName
             print(filePath)
-            im_window.save(filePath)
+            window_pil.save(filePath)
             print "Detection:: Location -> ({}, {})".format(x, y)
             detections.append((x, y, x+int(min_wdw_sz[0]), y+int(min_wdw_sz[1])))
             scores.append(output[0])
@@ -131,10 +116,11 @@ if __name__ == "__main__":
     detections = torch.tensor(detections).double()
     scores = torch.tensor(scores)
     detections_nms_idx = ops.nms(detections,scores,0.2)
-    img1 = ImageDraw.Draw(img_origin) 
+    img1 = ImageDraw.Draw(img_origin_pil) 
     for idx in detections_nms_idx:
         # Draw the detections
-        img1.rectangle(detections[idx].tolist(), fill=None, outline ="red") 
+        img1.rectangle(detections[idx].tolist(), fill=None, outline ="red")
 
-    img_origin.show() 
-    time.sleep(5)
+    img_origin_pil.show()
+
+    cv2.waitKey(0)

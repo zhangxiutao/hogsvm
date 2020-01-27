@@ -20,7 +20,7 @@ if platform.system() == "Linux":
         os.system("python ../object-detector/extract-features.py -p {} -n {}".format(pos_path, neg_path))
         os.system("python ../object-detector/train-classifier.py -p {} -n {}".format(pos_feat_path, neg_feat_path))
     else:
-        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle/baustelle_14.jpg"
+        test_im_path = "../data/dataset/BaustelleData/TestImages/baustelle/baustelle_15.png"
         os.system("python ../object-detector/test-classifier.py -i {} -d {}".format(test_im_path,3))
 
 elif platform.system() == "Windows":
