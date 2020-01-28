@@ -126,8 +126,7 @@ if __name__ == "__main__":
     # Read the image
     img_origin_pil = Image.open(args["image"])
     img_origin_pil = img_origin_pil.crop((0,int(img_origin_pil.size[1]/2),img_origin_pil.size[0],img_origin_pil.size[1]))
-    img_origin_cv2 = np.array(img_origin_pil.convert('RGB')) 
-    img_origin_cv2 = img_origin_cv2[:, :, ::-1].copy() #convert rgb to bgr
+    img_origin_cv2 = PIL2cv2(img_origin_pil)
 
     # List to store the detections
     detections = []
